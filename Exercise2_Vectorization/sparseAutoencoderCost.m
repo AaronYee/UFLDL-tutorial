@@ -64,14 +64,20 @@ delta3 = -(a1 - a3) .* a3 .* (1 - a3);
 sparseGrad = (1 - p) ./ (1 - pMean) - p ./ pMean;
 delta2 = (bsxfun(@plus, W2' * delta3, beta * sparseGrad)) .* a2 .* (1 - a2);
 
-W1grad = W1grad + delta2 * a1';
-W2grad = W2grad + delta3 * a2';
+% W1grad = W1grad + delta2 * a1';
+% W2grad = W2grad + delta3 * a2';
+% 
+% b1grad = b1grad + mean(delta2,2);
+% b2grad = b2grad + mean(delta3,2);
+% 
+% W1grad = W1grad / m + lambda * W1;
+% W2grad = W2grad / m + lambda * W2;
 
-b1grad = b1grad + mean(delta2,2);
-b2grad = b2grad + mean(delta3,2);
+b2grad = sum(delta3, 2) / size(data,2);
+b1grad = sum(delta2, 2) / size(data,2);
 
-W1grad = W1grad / m + lambda * W1;
-W2grad = W2grad / m + lambda * W2;
+W2grad = delta3 * a2' / size(data,2)  + lambda * W2; % 25 64
+W1grad = delta2 * data' / size(data,2) + lambda * W1; % 25 64
 
 grad = [W1grad(:) ; W2grad(:) ; b1grad(:) ; b2grad(:)];
 

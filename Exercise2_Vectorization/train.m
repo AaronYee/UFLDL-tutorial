@@ -29,6 +29,7 @@ beta = 3;            % weight of sparsity penalty term
 %  display a random sample of 200 patches from the dataset
 
 %patches = sampleIMAGES;
+images = loadMNISTImages('train-images.idx3-ubyte');
 patches = images(:,1:10000);
 display_network(patches(:,randi(size(patches,2),200,1)),8);
 

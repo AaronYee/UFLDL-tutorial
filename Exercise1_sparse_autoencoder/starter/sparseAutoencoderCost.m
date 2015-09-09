@@ -1,5 +1,5 @@
-function [cost,grad] = sparseAutoencoderCost(theta, visibleSize, hiddenSize, ...
-                                             lambda, sparsityParam, beta, data)
+function [cost, grad] = sparseAutoencoderCost(theta, visibleSize, hiddenSize, ...
+                                              lambda, sparsityParam, beta, data)
 
 % visibleSize: the number of input units (probably 64) 
 % hiddenSize: the number of hidden units (probably 25) 
@@ -13,17 +13,18 @@ function [cost,grad] = sparseAutoencoderCost(theta, visibleSize, hiddenSize, ...
 % We first convert theta to the (W1, W2, b1, b2) matrix/vector format, so that this 
 % follows the notation convention of the lecture notes. 
 
-W1 = reshape(theta(1:hiddenSize*visibleSize), hiddenSize, visibleSize);
-W2 = reshape(theta((hiddenSize*visibleSize+1):2*hiddenSize*visibleSize), visibleSize, hiddenSize);
-b1 = theta((2*hiddenSize*visibleSize+1):2*hiddenSize*visibleSize+hiddenSize);
-b2 = theta((2*hiddenSize*visibleSize+hiddenSize+1):end);
+W1 = reshape(theta(1 : visibleSize * hiddenSize), hiddenSize, visibleSize);
+W2 = reshape(theta((visibleSize * hiddenSize + 1) : 2 * visibleSize * hiddenSize), visibleSize, hiddenSize);
+b1 = theta((2 * visibleSize * hiddenSize + 1) : (2 * visibleSize * hiddenSize + hiddenSize));
+b2 = theta((2 * visibleSize * hiddenSize + hiddenSize + 1) : end);
 
 % Cost and gradient variables (your code needs to compute these values). 
 % Here, we initialize them to zeros. 
+
 cost = 0;
-W1grad = zeros(size(W1)); 
+W1grad = zeros(size(W1));
 W2grad = zeros(size(W2));
-b1grad = zeros(size(b1)); 
+b1grad = zeros(size(b1));
 b2grad = zeros(size(b2));
 
 %% ---------- YOUR CODE HERE --------------------------------------
@@ -42,86 +43,47 @@ b2grad = zeros(size(b2));
 % the gradient descent update to W1 would be W1 := W1 - alpha * W1grad, and similarly for W2, b1, b2. 
 % 
 
+m = size(data,2);
 a1 = data;
-% 
-z2 = W1 * data + repmat(b1,1,size(data,2));
+z2 = bsxfun(@plus, W1 * a1, b1);
 a2 = sigmoid(z2);
-% 
-z3 = W2 * a2 + repmat(b2,1,size(a2,2));
+z3 = bsxfun(@plus, W2 * a2, b2);
 a3 = sigmoid(z3);
-% 
-pAc = mean(a2,2);
-KL = sparsityParam .* log(sparsityParam ./ pAc) + (1 - sparsityParam) .* log((1-sparsityParam) ./ (1 - pAc));
-% 
-J = mean(sum((a3 - data) .^ 2)  / 2) + lambda  / 2 * (sum(sum(W1 .^ 2)) + sum(sum(W1 .^ 2)));
-% 
-cost = J + beta * sum(KL);
 
-spa = (1 - sparsityParam) ./ (1 - pAc) - sparsityParam ./ pAc; 
-% 
-delta3 = -(data - a3) .* (a3 .* (1 - a3));     % 64 * 10000
-delta2 = (W2' * delta3 + repmat(beta*spa,1,size(data,2))) .* (a2 .* (1 - a2));   % 25 * 10000
-% delta1 = (W1' * delta2) .* (a1 .* (1 - a1));   % 64 * 10000
-% 
-W1grad = W1grad + delta2 * a1';   % 25 * 64
-W2grad = W2grad + delta3 * a2';   % 64 * 25
-b1grad = b1grad + mean(delta2,2);         % 25 * 10000
-b2grad = b2grad + mean(delta3,2);         % 64 * 10000
-% 
-W1grad = W1grad / size(data,2) + lambda .* W1;
-W2grad = W2grad / size(data,2) + lambda .* W2;
-% 
-% b1grad = mean(b1grad,2);
-% b2grad = mean(b2grad,2);
-% mm=size(data,2);
-% 
-% z2=(W1*data)+repmat(b1,1,mm);
-% a2=sigmoid(z2);
-% z3=(W2*a2)+repmat(b2,1,mm);
-% a3=sigmoid(z3);
+p = sparsityParam;
+pMean = mean(a2,2);
 
-% rho=sum(a2,2)./mm;
+errorTerm = mean(sum((a1 - a3) .^ 2)) / 2;
+decayTerm = sum(sum(W1 .^ 2)) + sum(sum(W2 .^ 2));
+sparseTerm = sum(p .* log(p ./ pMean) + (1 - p) .* log((1 - p) ./ (1 - pMean)));
 
-%cost=1/2/mm*sum(sum((a3-data).^2))+lambda/2*(sum(sum(W1.^2))+sum(sum(W2.^2)))+beta*sum(kldiverge(rho,sparsityParam));
-%sparityy=(-sparsityParam./rho+(1-sparsityParam)./(1-rho));
+cost = errorTerm + lambda / 2 * decayTerm + beta * sparseTerm;
 
- %x=data();
- %delta3=-(x-a3).*sigmoidGradient(z3);
- %delta2=(W2'*delta3+repmat(beta*sparityy,1,mm)).*a2.*(1-a2);
-%  W1grad=W1grad+delta2*x';
-%  W2grad=W2grad+delta3*a2';
-%  b1grad=b1grad+sum(delta2,2);
-%  b2grad=b2grad+sum(delta3,2);
+
+delta3 = -(a1 - a3) .* a3 .* (1 - a3);
+sparseGrad = (1 - p) ./ (1 - pMean) - p ./ pMean;
+delta2 = (bsxfun(@plus, W2' * delta3, beta * sparseGrad)) .* a2 .* (1 - a2);
+
+% W1grad = W1grad + delta2 * a1';
+% W2grad = W2grad + delta3 * a2';
 % 
-% b1grad=b1grad/mm;
-% b2grad=b2grad/mm;
-% W1grad=W1grad/mm+lambda*W1;
-% W2grad=W2grad/mm+lambda*W2;
+% b1grad = b1grad + mean(delta2,2);
+% b2grad = b2grad + mean(delta3,2);
+% 
+% W1grad = W1grad / m + lambda * W1;
+% W2grad = W2grad / m + lambda * W2;
 
-%-------------------------------------------------------------------
-% After computing the cost and gradient, we will convert the gradients back
-% to a vector format (suitable for minFunc).  Specifically, we will unroll
-% your gradient matrices into a vector.
+b2grad = sum(delta3, 2) / size(data,2);
+b1grad = sum(delta2, 2) / size(data,2);
+
+W2grad = delta3 * a2' / size(data,2)  + lambda * W2; % 25 64
+W1grad = delta2 * data' / size(data,2) + lambda * W1; % 25 64
 
 grad = [W1grad(:) ; W2grad(:) ; b1grad(:) ; b2grad(:)];
 
 end
 
-%-------------------------------------------------------------------
-% Here's an implementation of the sigmoid function, which you may find useful
-% in your computation of the costs and the gradients.  This inputs a (row or
-% column) vector (say (z1, z2, z3)) and returns (f(z1), f(z2), f(z3)). 
-
 function sigm = sigmoid(x)
-  
     sigm = 1 ./ (1 + exp(-x));
 end
-% function kld = kldiverge(x,sparsityParam)
-%     kld =sparsityParam.*log(sparsityParam./x)+(1-sparsityParam).*log((1-sparsityParam)./(1.-x));
-% end 
-% % KL = sparsityParam .* log(sparsityParam ./ pAc) + (1 - sparsityParam) .* log((1-sparsityParam) ./ (1 - pAc));
-% 
-% function g = sigmoidGradient(z)
-% g=zeros(size(z));
-% g=sigmoid(z).*(1-sigmoid(z));
-% end
+
